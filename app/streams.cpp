@@ -29,8 +29,8 @@ int main(int argc, const char *argv[]) {
 		return cout << "Could not detect path" << endl, 1;
 
 	if(argc < 3) share = self.substr(0, pos+1) + ".." + delim + "share" + delim;
-	vert = (argc < 2) ? share + "vert.glsl" : argv[1];
-	frag = (argc < 3) ? share + "frag.glsl" : argv[2];
+	vert = (argc < 2) ? share + "a.txt" : argv[1];
+	frag = (argc < 3) ? share + "b.txt" : argv[2];
 	for(auto const& p : {vert}) {
 		cout << "Reading " << p << " line by line; ";
 
