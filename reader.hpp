@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <numeric>
 ///@endcond
 
 namespace Streams {
@@ -65,7 +66,10 @@ struct Reader {
 			lines.push_back(line);
 		return *this;
 	}
-	std::size_t size(void) const;
+	std::size_t size(void) const {
+		return std::accumulate(lines.begin(), lines.end(), std::string(),
+			[](std::string const& str, std::string const& s) { return str + "\n" + s; }).length();
+	}
 	operator std::string(void) const;
 	template<class S>
 	friend S& operator<<(S& s, Reader const& r) {
