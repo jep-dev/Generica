@@ -19,8 +19,8 @@ FILE_PATTERNS?=*.hpp *.tpp *.cpp *.ipp *.markdown *.md
 FULL_PATH_NAMES=YES
 INCLUDE_PATH=$(DIR_HDR)
 #INPUT=include/ src/ app/
-INPUT=$(DIR_HDR) $(DIR_SRC) $(DIR_APP)
-#INPUT=$(foreach D,HDR SRC APP,$(foreach P,$(FILE_PATTERNS),$(wildcard $D$P $D*/$P)))
+INPUT=$(DIR_HDR) $(DIR_APP)
+#INPUT=$(foreach D,HDR APP,$(foreach P,$(FILE_PATTERNS),$(wildcard $D$P $D*/$P)))
 INPUTS=$(INPUT)
 OUTPUT_DIRECTORY=$(DIR_DOC)
 QT_AUTOBRIEF?=YES
@@ -28,7 +28,7 @@ MULTILINE_CPP_IS_BRIEF=YES
 RECURSIVE?=YES
 SHOW_INCLUDE_FILES?=NO
 STRIP_FROM_PATH?=./
-STRIP_FROM_INC_PATH?=include/
+STRIP_FROM_INC_PATH?=./
 WARNINGS=NO
 
 #TAG_DIRNAMES?=html latex
@@ -38,8 +38,8 @@ TAG_FILEMAPS:=$(join $(TAG_FILENAMES),$(addprefix =,$(TAG_FILENAMES:.tag=)))
 DOXY_FILENAMES?=$(addprefix $(DIR_DOC)Doxyfile_,$(TAG_DIRNAMES))
 DOXY_FILENAMES:=$(DOXY_FILENAMES) $(DOXY_FILENAMES:%=%.bak)
 
-#DOXY_LOCATE=$(foreach D,HDR SRC APP,$(foreach X,.hpp .tpp .cpp,$(wildcard $(DIR_$D)*$X)))
-DOXY_LOCATE:=$(wildcard $(DIR_HDR)*.hpp $(DIR_HDR)*.tpp $(DIR_SRC)*.cpp $(DIR_APP)*.cpp)
+#DOXY_LOCATE=$(foreach D,HDR APP,$(foreach X,.hpp .tpp .cpp,$(wildcard $(DIR_$D)*$X)))
+DOXY_LOCATE:=$(wildcard $(DIR_HDR)*.hpp $(DIR_HDR)*.tpp $(DIR_APP)*.cpp)
 DOXY_LOCATE:=$(DOXY_LOCATE:/home/john/dev/geometric/include/=)
 
 $(DIR_DOC)%.tag: $(DOXY_LOCATE)
