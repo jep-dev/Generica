@@ -81,6 +81,20 @@ auto for_each2(std::tuple<S...> &s, F const& f, T &&... t)
 	for_each2<I+1>(s, f, std::forward<T>(t)...);
 }
 
+template<class... F, class... T>
+void do_for_each(SeqSz<>, std::tuple<F...> const& f, T &&... t) {}
+
+template<std::size_t I, std::size_t... J, class... F, class... T>
+void do_for_each(SeqSz<I, J...>, std::tuple<F...> const& f, T &&... t) {
+	get<I>(f)(t...);
+	do_for_each(SeqSz<J...>{}, f, std::forward<T>(t)...);
+}
+
+template<class... F, class... T>
+void do_for_each(std::tuple<F...> const& f, T &&... t) {
+	do_for_each(IncSeq<sizeof...(F), true, std::size_t>{}, f, std::forward<T>(t)...);
+}
+
 }
 
 #endif

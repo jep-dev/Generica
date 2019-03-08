@@ -3,6 +3,7 @@
 #include <sstream>
 #include <tuple>
 
+#include "functional/for_each.hpp"
 #include "functional/transform.hpp"
 
 namespace Detail {
@@ -34,6 +35,7 @@ OS& operator<<(OS & os, std::tuple<S...> const& s)
 int main(int argc, const char *argv[]) {
 	using namespace std;
 	using Detail::transform;
+	using Detail::do_for_each;
 
 	auto tup = make_tuple("Hello", 2, "world", M_PI, 'a');
 	static constexpr auto N = tuple_size<decltype(tup)>();
@@ -58,5 +60,10 @@ int main(int argc, const char *argv[]) {
 	auto even = Detail::IncSeq<N-N/2>{}+Detail::IncSeq<N-N/2>{};
 	auto xform_even = transform(even, tup, tostr);
 	cout << "    Even seq: " << even << " -> " << xform_even << endl;
+
+	do_for_each(make_tuple([](auto && x, auto &&...) { cout << "First: " << x << endl; },
+		[](auto && x, auto && y, auto && z, auto &&...) { cout << "Second: " << y << ", " << z << endl; },
+		[](auto && x, auto && y, auto && z, auto &&...) { cout << "Third: " << x << ", " << z << endl; }),
+		1, 2, 3);
 
 }
