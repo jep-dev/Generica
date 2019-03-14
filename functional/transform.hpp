@@ -2,14 +2,32 @@
 #define TRANSFORM_HPP
 
 #include "sequence.hpp"
+#include <tuple>
 
 namespace Detail {
+
+template<class S, std::size_t N = std::tuple_size<RemoveCVRef_t<S>>::value>
+auto reverse_tuple(S && s)
+-> decltype(reverse_tuple(std::forward<S>(s), IncSeq<N, true, std::size_t>{}))
+	{ return reverse_tuple(std::forward<S>(s), IncSeq<N, true, std::size_t>{}); }
+template<class S, class T, T... I, std::size_t N = std::tuple_size<RemoveCVRef_t<S>>::value>
+auto reverse_tuple(S && s, Seq<T, I...> = {})
+-> std::tuple<decltype(get<N-I-1>(std::forward<S>(s)))...>
+	{ return {get<N-I-1>(std::forward<S>(s))...}; }
+template<class... S>
+auto make_reverse_tuple(S &&... s) {
+	return reverse_tuple(make_tuple(std::forward<S>(s)...));
+}
 
 /** @brief Transforms the Ith element of s with the given function and arguments */
 template<unsigned... I, class... S, class F, class... T>
 auto transform(SeqU<I...>, std::tuple<S...> const& s, F const& f, T &&... t)
-	-> std::tuple<decltype(f(std::get<I>(s), std::forward<T>(t)...))...>
+	-> decltype(std::make_tuple(f(std::get<I>(s), std::forward<T>(t)...)...))
 		{ return std::make_tuple(f(std::get<I>(s), std::forward<T>(t)...)...); }
+	// TODO side effects are in reverse order; execute in reverse order, then reverse results
+	// The index below is wrong (order of I... should be reversed, not S...)
+	/*-> decltype(make_reverse_tuple(f(std::get<sizeof...(S)-I-1>(s), std::forward<T>(t)...)...))
+		{ return make_reverse_tuple(f(std::get<sizeof...(S)-I-1>(s), std::forward<T>(t)...)...); }*/
 /** @brief Transform with a default sequence, [0, sizeof...(S)-1] */
 template<class... S, class F, class... T, class INC = IncSeq<sizeof...(S)>>
 auto transform(std::tuple<S...> const& s, F const& f, T &&... t)
@@ -19,8 +37,11 @@ auto transform(std::tuple<S...> const& s, F const& f, T &&... t)
 /** @brief Transforms the Ith element of s with the given function and arguments */
 template<unsigned... I, class... S, class F, class... T>
 auto transform(SeqU<I...>, std::tuple<S...> &s, F const& f, T &&... t)
-	-> std::tuple<decltype(f(std::get<I>(s), std::forward<T>(t)...))...>
+	-> decltype(std::make_tuple(f(std::get<I>(s), std::forward<T>(t)...)...))
 		{ return std::make_tuple(f(std::get<I>(s), std::forward<T>(t)...)...); }
+	// TODO see previous
+	/*-> decltype(make_reverse_tuple(f(std::get<sizeof...(S)-I-1>(s), std::forward<T>(t)...)...))
+		{ return make_reverse_tuple(f(std::get<sizeof...(S)-I-1>(s), std::forward<T>(t)...)...); }*/
 /** @brief Transform with a default sequence, [0, sizeof...(S)-1] */
 template<class... S, class F, class... T, class INC = IncSeq<sizeof...(S)>>
 auto transform(std::tuple<S...> &s, F const& f, T &&... t)
@@ -28,10 +49,27 @@ auto transform(std::tuple<S...> &s, F const& f, T &&... t)
 		{ return transform(INC{}, s, f, std::forward<T>(t)...); }
 
 template<class S, S... I, class F, class... T>
-auto transform(Seq<S, I...>, F const& f, T &&... t)
-//-> std::tuple<decltype(f(SeqU<I>{}, std::forward<T>(t)...)...)>
-	-> decltype(std::make_tuple(f(Seq<S, I>{}, std::forward<T>(t)...)...))
-	{ return std::make_tuple(f(Seq<S, I>{}, std::forward<T>(t)...)...); }
+auto transform(Seq<S, I...> i, F const& f, T &&... t)
+-> decltype(std::make_tuple(f(Seq<S, I>{}, std::forward<T>(t)...)...))
+{ return std::make_tuple(f(Seq<S, I>{}, std::forward<T>(t)...)...); }
+// TODO see previous
+/*-> decltype(transform(seq_to_tuple_seq(i), f, std::forward<T>(t)...))
+	{ return transform(seq_to_tuple_seq(i), f, std::forward<T>(t)...) }*/
+
+/** @brief Transform a sequence with explicit indices */
+template<class R, R... I, class S, S... J, class F, class... T>
+auto transform(Seq<R, I...> i, Seq<S, J...> j, F && f, T &&... t)
+	{ return transform(i, seq_to_tuple_seq(j), std::forward<F>(f), std::forward<T>(t)...); }
+/** @brief Transform a sequence with implicit indices
+ * Transform with the same arguments would interpret the first sequence as indices */
+template<class S, S... J, class F, class... T>
+auto transform_seq(Seq<S, J...> j, F && f, T &&... t)
+	{ return transform(seq_to_tuple_seq(j), std::forward<F>(f), std::forward<T>(t)...); }
+/** @brief Transform a sequence with explicit indices */
+template<class R, R... I, class S, S... J, class F, class... T>
+auto transform_seq(Seq<R, I...> i, Seq<S, J...> j, F && f, T &&... t)
+	{ return transform(i, j, std::forward<F>(f), std::forward<T>(t)...); }
+
 
 /*template<unsigned... I, class... S, class F, class... T>
 auto transform(SeqU<I...>, Tag<S...> s, F const& f, T &&... t)
@@ -47,10 +85,11 @@ auto transform(Tag<S...> s, F const& f, T &&... t)
 template<unsigned... I, class... S, class... T, class F, class... U>
 auto transform_pairwise(SeqU<I...>, std::tuple<S...> const& s, std::tuple<T...> const& t,
 		F const& f, U &&... u)
--> std::tuple<decltype(f(std::get<I>(s), std::get<I>(t), std::forward<T>(t)...))...> {
-	return std::make_tuple(f(std::get<I>(s), std::get<I>(t), std::forward<T>(t)...)...);
-}
-//class F, class... S, class... T, class... U,
+-> std::tuple<decltype(f(std::get<I>(s), std::get<I>(t), std::forward<T>(t)...))...>
+	{ return std::make_tuple(f(std::get<I>(s), std::get<I>(t), std::forward<T>(t)...)...); }
+// TODO see previous
+/*-> std::tuple<decltype(f(std::get<I>(s), std::get<I>(t), std::forward<T>(t)...))...>
+	{ return std::make_tuple(f(std::get<I>(s), std::get<I>(t), std::forward<T>(t)...)...); }*/
 template<class... S, class... T, class F, class... U,
 	class INC = std::enable_if_t<sizeof...(S) == sizeof...(T), IncSeq<sizeof...(S)>>>
 auto transform_pairwise(std::tuple<S...> const& s, std::tuple<T...> const& t,
@@ -124,7 +163,7 @@ auto nth_cartesian(std::tuple<S...> const& s, std::tuple<T...> const& t,
 
 // TODO working on constexpr variants, considering making qualifiers optional
 // (all combinations of qualifiers would warrant either selective specialization
-// or C macro firepower.
+// or C macro firepower.)
 /*template<std::size_t I = 0, class S, S... V, class F, class... T>
 auto for_each(Seq<S, V...> const& v, F const& f, T &&... t)
 	-> std::enable_if_t<(I == sizeof...(V), void> {}
@@ -141,44 +180,6 @@ constexpr auto zip(Tag<U...> const&, Tag<V...> const&) -> Tag<Tag<U,V>...> { ret
 /** @brief Creates two type sequences from one by splitting each element */
 template<class... U, class... V>
 constexpr auto unzip(Tag<Tag<U, V>...> const&) -> Tag<Tag<U...>, Tag<V...>> { return {}; }
-
-template<class T, T... U, T... V>
-constexpr auto zip(Seq<T, U...> const&, Seq<T, V...> const&)
-	-> Tag<Seq<T, U, V>...> { return {}; }
-template<class T, T... U, T... V>
-constexpr auto unzip(Tag<Seq<T, U, V>...> const&)
-	-> Tag<Seq<T, U...>, Seq<T, V...>> { return {}; }
-
-/** Maps a sequence of values to a sequence of individual value types */
-template<class S, S... I>
-constexpr auto seq_to_tag_seq(Seq<S, I...> const&) -> Tag<Seq<S,I>...> { return {}; }
-template<class S, S... I>
-constexpr auto tag_seq_to_seq(Tag<Seq<S, I>...> const&) -> Seq<S, I...> { return {}; }
-
-template<class... S, class C = std::common_type_t<decltype(S::value)...>>
-constexpr auto tag_value_to_seq(Tag<S...> const&) -> Seq<C, S::value...> { return {}; }
-
-template<class... S, S... V>
-constexpr auto tuple_seq_to_seq(std::tuple<Seq<S,V>...> const& v)
--> decltype(tag_seq_to_seq(tuple_to_tag(v))) { return {}; }
-
-/** @brief Converts the sequence to tuple sequence segments */
-template<class S, S... I>
-auto seq_to_tuple_seq(Seq<S, I...> const&)
-	-> std::tuple<Seq<S,I>...> { return std::make_tuple(Seq<S,I>{}...); }
-
-/** @brief Transforms sequence elements to tuple elements */
-template<class S, S... I, class F, class... T>
-auto seq_to_tuple(Seq<S, I...> const&, F const& f, T &&... t)
-	-> std::tuple<decltype(f(I, std::forward<T>(t)...))...>
-		{ return std::make_tuple(f(I, std::forward<T>(t)...)...); }
-
-/** @brief Transforms sequence elements to array elements */
-template<class S, S I0, S... I, class F, class... T>
-auto seq_to_array(Seq<S, I0, I...> const&, F const& f, T &&... t)
-	-> std::array<decltype(f(I0, std::forward<T>(t)...)), 1 + sizeof...(I)>
-		{ return {f(I0, std::forward<T>(t)...), f(I, std::forward<T>(t)...)...}; }
-
 
 // Lvalue TTOA
 template<class K, K... V, class S, class... T, class U = S>
