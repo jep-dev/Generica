@@ -25,18 +25,15 @@ int main(int argc, const char *argv[]) {
 	std::string line;
 	S u = 0, v = 0;
 	while(std::getline(std::cin, line)) {
+		if(!line.length()) break;
 		std::istringstream iss(line);
 		S ui = u, vi = v;
 		iss >> ui;
-		if(!iss.fail()) {
-			u = ui;
-			iss >> vi;
-			if(!iss.fail()) {
-				v = vi;
-			}
-		}
-		std::cout << bSpline<UD, VD, UM+1, VM+1, C, UKnots, VKnots, S>(controls,
-				uKnots, vKnots, u, v);
+		if(iss.fail()) continue;
+		if(iss >> vi, iss.fail()) continue;
+		auto bs = bSpline<UD, VD, UM+1, VM+1, C, UKnots, VKnots, S>
+			(controls, uKnots, vKnots, u = ui, v = vi);
+		std::cout << "(" << u << ", " << v << ") -> " << bs << std::endl;
 	}
 
 
