@@ -148,6 +148,7 @@ int main(int argc, const char *argv[]) {
 		rows[index] += sv;
 	}
 	level_insert(rows, border+padding);
+	cout << "NI = " << NI << "; NJ = " << NJ << "; MD = " << MD << "; ND = " << ND << endl;
 	for(unsigned j = 0; j < NJ; j++) {
 		for(unsigned l = 0; l < ND; l++) {
 			unsigned row = 1;
@@ -158,7 +159,7 @@ int main(int argc, const char *argv[]) {
 					oss.str("");*/
 					//rows[i*MD+k] += to_string(bases[i][j][k][l], prec, false);
 					auto str = to_string(bases[i][j][k][l], prec, false);
-					auto dLen = std::max<unsigned>(0, valLen - str.length());
+					auto dLen = std::max<int>(0, valLen - str.length());
 					rows[row++] += string(dLen, ' ') + str;
 				}
 				row++;
