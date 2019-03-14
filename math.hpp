@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "numeric.hpp"
+#include "sequence.hpp"
 
 template<class> struct Point;
 template<class> struct Quaternion;
@@ -170,5 +171,51 @@ long numDigits(T const& t, unsigned radix) {
 	long out = ceil(log(abs(long(t))+1)/log(radix));
 	return out ? out : 1;
 }
+
+template<unsigned N, class S, S V, class T = S>
+constexpr T log(Detail::Seq<S, V> = {}) {
+	static_assert((V > 0) && (N > 1), "Must be positive");
+	S u = V;
+	T p = 0;
+	for(S k = 1; u > 0; k *= N, p++) {
+		// k << 1 might overflow
+		if(k > (u / N)) return p;
+	}
+	return p; // unmet
+}
+template<class S, S V, class T = S>
+constexpr T log2(Detail::Seq<S, V> v = {}) { return log<2, T>(v); }
+template<class S, S V, class T = S>
+constexpr T log10(Detail::Seq<S, V> v = {}) { return log<10, T>(v); }
+
+/*template<unsigned N, class S, S V, class T = S>
+constexpr T pow(Detail::Seq<S, V> v = {}) {
+	T u = 1;
+	for(S i = 0; i < V; i++, u *= N) {}
+	return u;
+}
+template<class S, S V, class T = S>
+constexpr T pow2(Detail::Seq<S, V> v = {}) { return 1 << V; }
+template<class S, S V, class T = S>
+constexpr T pow10(Detail::Seq<S, V> v = {}) { return pow<10>(v); }*/
+
+/*template<class S, S V>
+constexpr bool is_pow2(Detail::Seq<S, V> v = {}) {
+}*/
+
+/*template<unsigned N, class S, S V>
+constexpr S log(Seq<S, V>) {
+	static_assert((V > 0) && (N > 1), "Must be positive");
+	S u = V, p = 0;
+	for(S k = 1, p = 0; u > 0; k *= N, p++) {
+		// k << 1 might overflow
+		if(k > (u / N)) return p;
+	}
+	return p; // unmet
+}
+template<class S, S V>
+constexpr S log2(Seq<S, V> v) { return log<2>(v); }
+template<class S, S V>
+constexpr S log10(Seq<S, V> v) { return log<10>(v); }*/
 
 #endif
