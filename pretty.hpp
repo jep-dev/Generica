@@ -58,7 +58,7 @@ std::string pretty(T &&... t) {
 	return pretty<T...>();
 }
 
-template<class T>
+/*template<class T>
 std::string pretty_abbrev(void) {
 	std::string s = Pretty<T>(),
 			subs[][2] {{"std::", ""}, {"< <", "<<"}, {"> >", ">>"}};
@@ -74,6 +74,24 @@ std::string pretty_abbrev(void) {
 template<class T>
 std::string pretty_abbrev(T && t) {
 	return pretty_abbrev<T>();
+}*/
+
+template<class... T>
+std::string pretty_abbrev(void) {
+	std::string s = Pretty<T...>(),
+			subs[][2] {{"std::", ""}, {"< <", "<<"}, {"> >", ">>"}};
+	std::size_t pos = 0;
+	for(auto const& sub : subs) {
+		pos = 0;
+		while((pos = s.find(sub[0], pos)) != std::string::npos) {
+			s.replace(pos, sub[0].length(), sub[1]);
+		}
+	}
+	return s;
+}
+template<class... T>
+std::string pretty_abbrev(T &&... t) {
+	return pretty_abbrev<T...>();
 }
 
 #endif
