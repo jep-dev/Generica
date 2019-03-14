@@ -18,13 +18,6 @@ S& operator<<(S& os, std::integral_constant<T, V>) {
 	return os << "[T=" << to_string(V) << "]", os;
 }
 
-template<class T, T... TN>
-std::string to_string(Seq<T, TN...> const& seq) {
-	std::ostringstream oss;
-	oss << seq;
-	return "{" + oss.str() + "}";
-}
-
 template<class T, std::size_t N>
 std::string substitute(std::string const& str, const T (&t) [N][2]) {
 	std::string out = str;
