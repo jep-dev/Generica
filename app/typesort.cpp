@@ -8,6 +8,10 @@
 
 namespace Detail {
 
+enum EDim : unsigned char {
+	e_width = 0, e_height, e_depth, en_dims
+};
+
 template<unsigned W> struct Width;
 template<unsigned H> struct Height;
 template<unsigned D> struct Depth;

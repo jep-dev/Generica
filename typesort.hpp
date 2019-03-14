@@ -6,10 +6,6 @@
 
 namespace Detail {
 
-enum EDim : unsigned char {
-	e_width = 0, e_height, e_depth, en_dims
-};
-
 template<class L, class C, class R>
 struct Inserting;
 template<class... L, class C, class... R>
@@ -70,20 +66,6 @@ struct Insert<C, Tag<R...>>: InsertionSort<Tag<>, C, Tag<R...>>::type {
 };
 template<class C, class R>
 using Insert_t = typename Insert<C, R>::type;*/
-
-/*
-template<long W>
-struct Width;
-template<long W>
-struct Width: Comparable<EDim, e_width, Width<W>> {};
-// static constexpr auto w = make_width<1024>() = Width<1024>{}
-template<long H>
-struct Height;
-template<long H>
-struct Height: Comparable<EDim, e_height, Height<H>> {};
-// static constexpr auto h = make_height<768>() = Height<768>{}
-// static_assert(is_same<typename Width::lesser_type<e_
-*/
 
 }
 
