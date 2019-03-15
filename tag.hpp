@@ -263,23 +263,6 @@ constexpr auto reverse(Tag<U, V...>, X x = {})
 template<class... X>
 constexpr auto reverse(Tag<>, Tag<X...> x = {}) -> decltype(x) { return {}; }
 
-/*
-// Moves the head to the tail N times; defines type as the result
-template<class T, long N = 0, class V = void>
-struct Rotate;
-
-template<class... T, long N>
-struct Rotate<Tag<T...>, N, std::enable_if_t<!(N % sizeof...(T)), void>> {
-	typedef Tag<T...> type;
-};
-
-template<class S, class... T, long N>
-struct Rotate<Tag<S, T...>, N, std::enable_if_t<(N % (sizeof...(T)+1)), void>> {
-	typedef typename Rotate<Tag<T..., S>, (N % (sizeof...(T)+1)
-		+ (sizeof...(T)*2+1)) % (sizeof...(T)+1)>::type type;
-};*/
-
-
 template<class... T>
 Tag<T...> tuple_to_tag(std::tuple<T...> const&) { return {}; }
 
@@ -313,9 +296,17 @@ constexpr Tag<> operator>>(Tag<> const&, Seq<T, N> const&) { return {}; }
 
 template<class, class T, T N>
 struct Rotate;
-template<class... S, class T, T N>
+/*template<class... S, class T, T N>
 struct Rotate<Tag<S...>, T, N> {
 	typedef decltype(Tag<S...>{} << Seq<T, N>{}) type;
+};*/
+template<class S, class T, T N>
+struct Rotate {
+	typedef decltype(std::declval<S>() << Seq<T, N>{}) type;
+};
+template<class S, S... V, class T, T N>
+struct Rotate<Seq<S, V...>, T, N> {
+	typedef typename Rotate<Tag<Seq<S, V>...>, T, N>::type type;
 };
 template<class S, class T, T N>
 using Rotate_t = typename Rotate<S, T, N>::type;
