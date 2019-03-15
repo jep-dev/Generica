@@ -3,25 +3,26 @@
 
 #include "tag.hpp"
 #include <iosfwd>
+//#include <string>
 
 namespace Detail {
 
-/** A variadic unsigned sequence, useful for indexing Tag/Val. */
+/** A variadic unsigned sequence, useful for indexing Tag/tuple/etc.. */
 template<class T, T... I> struct Seq;
 
-/*template<class...> struct PolySeq;
-template<class... S, S... V> struct PolySeq<Seq<S,V>...>: Tag<Seq<S,V>...> {
-	typedef std::common_type_t<S...> common;
-	typedef Tag<Seq<S,V>...> type;
-	typedef Seq<common, common(V)...> homogeneous;
-	static constexpr unsigned size = sizeof...(V);
-	using type::contains;
-	using type::contains_base;
-	using type::contains_derived;
-};*/
+/** Simple nontype storage used exclusively as a scalar (not derived/convertible) */
+template<class T, T V> struct Scalar {
+	typedef T value_type;
+	static constexpr T value = V;
+};
 
-template<class S, class... T>
-constexpr bool contains(S const& s, T &&... t);
+template<int I> struct Scalar_i: Scalar<int, I> {};
+template<long I> struct Scalar_l: Scalar<long, I> {};
+template<short I> struct Scalar_s: Scalar<short, I> {};
+template<unsigned I> struct Scalar_u: Scalar<unsigned, I> {};
+template<unsigned long I> struct Scalar_ul: Scalar<unsigned long, I> {};
+template<unsigned short I> struct Scalar_us: Scalar<unsigned short, I> {};
+
 template<class S, S I, S... J>
 constexpr bool contains(Seq<S, J...> = {}, Seq<S, I> = {});
 
@@ -37,7 +38,6 @@ template<class T, T... I> struct Seq {
 
 	template<T J>
 	static constexpr bool contains(void) { return false; }
-
 };
 template<class T, T I0, T... IN> struct Seq<T, I0, IN...> {
 	typedef T type;
@@ -46,13 +46,26 @@ template<class T, T I0, T... IN> struct Seq<T, I0, IN...> {
 
 	constexpr operator T (void) const { return value; }
 
+	template<class S, S N, S M = ((N % size + size) % size)>
+	static constexpr T get(Seq<S, N>, std::enable_if_t<M == 0, std::true_type> = {}) { return I0; }
+	template<class S, S N, S M = ((N % size + size) % size)>
+	static constexpr T get(Seq<S, N>, std::enable_if_t<M != 0, std::false_type> = {})
+		{ return Seq<T, IN...>::get(Seq<S, M-1>{}); }
+
+	/*template<class S>
+	static constexpr T get(Seq<S, 0>) { return I0; }*/
+	template<class S, S N>
+	static constexpr T get(std::integral_constant<S, N>)
+		{ return Seq<T, IN...>::get(Seq<S, N>{}); }
 	template<std::size_t N>
-	static constexpr T get(std::integral_constant<std::size_t, N> = {})
-		{ return Seq<T, IN...>::get(std::integral_constant<std::size_t, N-1>{}); }
-	static constexpr T get(std::integral_constant<std::size_t, 0>) { return I0; }
+	static constexpr T get(void) { return get(SeqSz<N>{}); }
+
 	template<std::size_t N>
-	static constexpr T get(Seq<std::size_t, N>)
-		{ return Seq<T, IN...>::get(std::integral_constant<std::size_t, N>{}); }
+	static constexpr auto nth_type(Seq<std::size_t, N>)
+		-> Seq<T, get(Seq<std::size_t, N>{})> { return {}; }
+	template<class S, S... J>
+	auto constexpr operator[](Seq<S, J...> const&)
+		-> Seq<T, get<J>()...> { return {}; }
 
 	template<class S, S... J, class ST = std::common_type_t<S, T>>
 	static constexpr auto prepend(Seq<S, J...> = {})
@@ -65,15 +78,31 @@ template<class T, T I0, T... IN> struct Seq<T, I0, IN...> {
 	static constexpr bool contains(void)
 		{ return Detail::contains(Seq<T, I0, IN...>{}, Seq<T, J>{}); }
 
+	template<T J>
+	constexpr std::size_t find(Seq<T, J> j) const { return find(j, Seq<std::size_t, 0>{}); }
+	template<T J, std::size_t N>
+	constexpr std::size_t find(Seq<T, J> j, Seq<std::size_t, N> n) const {
+		return Seq<T, IN...>{}.find(j, Seq<std::size_t, N+1>{});
+	}
 	template<std::size_t N>
-	using nth_type = Seq<T, get<N>()>;
+	constexpr std::size_t find(Seq<T, I0>, Seq<std::size_t, N>) const { return N; }
+
+	/*template<std::size_t N>
+	using nth_type = Seq<T, get<N>()>;*/
 };
 
 template<class... S, S... V>
 constexpr auto to_seq(Seq<S,V>...) -> Seq<std::common_type_t<S...>,
 	static_cast<std::common_type_t<S...>>(V)...> { return {}; }
+template<class... S, S... V>
+constexpr auto to_seq(std::integral_constant<S,V>...)
+	-> Seq<std::common_type_t<S...>,
+		static_cast<std::common_type_t<S...>>(V)...> { return {}; }
 template<template<class...> class C, class... S, S... V>
 constexpr auto to_seq(C<Seq<S,V>...> const&)
+	-> decltype(to_seq(Seq<S,V>{}...)) { return {}; }
+template<template<class...> class C, class... S, S... V>
+constexpr auto to_seq(C<std::integral_constant<S,V>...> const&)
 	-> decltype(to_seq(Seq<S,V>{}...)) { return {}; }
 /*template<class... S, S... V>
 constexpr auto to_seq(Tag<Seq<S,V>...>)
@@ -91,6 +120,43 @@ constexpr auto to_tag_seq(Seq<S,V>...)
 template<template<class...> class C, class... S, S... V>
 constexpr auto to_tag_seq(C<Seq<S,V>...> const& c)
 	-> decltype(to_tag_seq(to_seq(c))) { return {}; }
+
+template<class T, T... U, T... V>
+constexpr auto zip(Seq<T, U...> const&, Seq<T, V...> const&)
+	-> Tag<Seq<T, U, V>...> { return {}; }
+template<class T, T... U, T... V>
+constexpr auto unzip(Tag<Seq<T, U, V>...> const&)
+	-> Tag<Seq<T, U...>, Seq<T, V...>> { return {}; }
+
+/** Maps a sequence of values to a sequence of individual value types */
+template<class S, S... I>
+constexpr auto seq_to_tag_seq(Seq<S, I...> const&) -> Tag<Seq<S,I>...> { return {}; }
+template<class S, S... I>
+constexpr auto tag_seq_to_seq(Tag<Seq<S, I>...> const&) -> Seq<S, I...> { return {}; }
+
+template<class... S, class C = std::common_type_t<decltype(S::value)...>>
+constexpr auto tag_value_to_seq(Tag<S...> const&) -> Seq<C, S::value...> { return {}; }
+
+template<class... S, S... V>
+constexpr auto tuple_seq_to_seq(std::tuple<Seq<S,V>...> const& v)
+-> decltype(tag_seq_to_seq(tuple_to_tag(v))) { return {}; }
+
+/** @brief Converts the sequence to tuple sequence segments */
+template<class S, S... I>
+auto seq_to_tuple_seq(Seq<S, I...> const&)
+	-> std::tuple<Seq<S,I>...> { return std::make_tuple(Seq<S,I>{}...); }
+
+/** @brief Transforms sequence elements to tuple elements */
+template<class S, S... I, class F, class... T>
+auto seq_to_tuple(Seq<S, I...> const&, F const& f, T &&... t)
+	-> std::tuple<decltype(f(I, std::forward<T>(t)...))...>
+		{ return std::make_tuple(f(I, std::forward<T>(t)...)...); }
+
+/** @brief Transforms sequence elements to array elements */
+template<class S, S I0, S... I, class F, class... T>
+auto seq_to_array(Seq<S, I0, I...> const&, F const& f, T &&... t)
+	-> std::array<decltype(f(I0, std::forward<T>(t)...)), 1 + sizeof...(I)>
+		{ return {f(I0, std::forward<T>(t)...), f(I, std::forward<T>(t)...)...}; }
 
 template<class S, S U, S... V>
 constexpr auto pop_front(Seq<S, U, V...> const&)
@@ -187,19 +253,24 @@ constexpr auto slice(Seq<S, U...> const& u)
 //-> decltype(tail<I>(pop_front(u))) { return {}; }
 
 
-template<class S, class... T>
+/*template<class S, class... T>
 constexpr bool contains(S const& s, T &&... t) {
 	return s.contains(std::forward<T>(t)...);
-}
+}*/
 
 template<std::size_t N, class T, T... I>
-constexpr auto get(Seq<T, I...>)
-		{ return Seq<T, I...>::get(std::integral_constant<std::size_t, N>{}); }
+constexpr auto get(Seq<T, I...> i) {
+	return i.get(SeqSz<N>{});
+}
 
-template<class S, S... M, class T, T N>
+/*template<class S, S... M, class T, T N>
 struct Rotate<Seq<S, M...>, T, N> {
 	typedef decltype(tag_seq_to_seq(Tag<Seq<S, M>...>{} << Seq<T, N>{})) type;
-};
+};*/
+template<class S, S... M, class T, T N>
+constexpr auto rotate(Seq<S, M...> m, Seq<T, N> n = {})
+-> decltype(to_seq(Rotate_t<decltype(seq_to_tag_seq(m)), T, N>{}))
+	{ return to_seq(Rotate_t<decltype(seq_to_tag_seq(m)), T, N>{}); }
 
 template<class T> struct SeqArray;
 template<class T, T... I> struct SeqArray<Seq<T, I...>> {
@@ -208,33 +279,29 @@ template<class T, T... I> struct SeqArray<Seq<T, I...>> {
 template<class T, T... I>
 constexpr T SeqArray<Seq<T, I...>>::value [sizeof...(I)];
 
-/* Removed make_seq(), especially make_seq(void) for now:
- * make_seq determines the T in Seq<T,...> from its arguments, so without arguments,
- * the type should be undefined.
- * Given T, e.g.
- *     makeSeqU(...) -> SeqU<...>; // OK even if length is zero
- * behavior around the empty set is poorly defined, e.g.
- *     SeqI<> + SeqC<...> = SeqI<...> // SeqI<> carries type int; int + char = int; or
- *     SeqI<> + SeqC<...> = SeqC<...> // SeqI<> is memberless only int-related in name; or
- *     undefined in general, which might suggest Seq*<> should be undefined after all.
- */
-
 template<class T, T... IN>
 constexpr std::size_t getSize(Detail::Seq<T, IN...> = {}) { return sizeof...(IN); }
 
 template<class T, T... V>
 constexpr auto operator-(Seq<T, V...> const&) -> Seq<T, -V...> { return {}; }
 
+
 /* To make sequences more expressive, operators between sequences are pairwise operators on
- * their elements. PAIRWISE is a macro function of a binary operator symbol used to generate
- * the corresponding operator overload. Its lifespan and all of its uses are inside this
- * if block. */
+ * their elements, and operators between scalars and sequences are distributed.
+ * PAIRWISE is a macro function of a binary operator symbol used to generate the corresponding
+ * operator overloads. Its lifespan and all of its uses are inside this if block. */
 #ifndef PAIRWISE
 #define PAIRWISE(OP) \
 template<class TI, TI... I, class TJ, TJ... J, \
 	class T = decltype(declval<TI>() OP declval<TJ>())> \
 constexpr auto operator OP(Seq<TI, I...>, Seq<TJ, J...>) \
-	-> Seq<T, (I OP J)...> { return {}; }
+	-> Seq<T, (I OP J)...> { return {}; } \
+template<class S, S... V, class T, T I> \
+constexpr auto operator OP(Seq<S, V...> const&, Scalar<T, I> const&) \
+	-> Seq<decltype(declval<S>() OP I), (V OP I)...> { return {}; } \
+template<class S, S I, class T, T... V> \
+constexpr auto operator OP(Scalar<S, I> const&, Seq<T, V...> const&) \
+	-> Seq<decltype(I OP declval<S>()), (I OP V)...> { return {}; }
 
 PAIRWISE(+) PAIRWISE(-) ///< Additive
 PAIRWISE(*) PAIRWISE(/) PAIRWISE(%) ///< Multiplicative
@@ -271,7 +338,7 @@ template<class S, S I = 0, S... J> struct BitOrSeq: std::integral_constant<S, I>
 template<class S, S I, S J, S... K> struct BitOrSeq<S, I, J, K...>: BitOrSeq<S, I | J, K...> {};
 template<class S, S I = 0, S... J, class BOS = BitOrSeq<S, I, J...>>
 //constexpr auto bitOrSeq(Seq<S, I, J...> = {}) -> Value_t<BOS> { return BOS::value; }
-constexpr auto bitOrSeq(Seq<S, I, J...> = {}) -> bool { return BOS::value; }
+constexpr auto bitOrSeq(Seq<S, I, J...> = {}) -> S { return BOS::value; }
 
 /** @brief Defines value as the sum of all {I0, IN...}.
  * Not to be confused with pairwise sum, etc. */
@@ -389,6 +456,95 @@ constexpr auto operator<<(Tag<T...> const& t, SeqL<N> const&)
 template<class... T, long N>
 constexpr auto operator>>(Tag<T...> const& t, SeqL<N> const&)
 -> decltype(t >> std::integral_constant<long, N>{}) { return {}; }
+
+template<class S, S... V, class F>
+auto remove_if(Seq<S, V...> v, F && f)
+	-> decltype(remove_if(v, std::forward<F>(f), Seq<S>{})) { return {}; }
+template<class S, class F, S... W>
+auto remove_if(Seq<S> v, F && f, Seq<S, W...> w)
+	-> Seq<S, W...> { return {}; }
+template<class S, S V0, S... V, class F, S... W>
+auto remove_if(Seq<S, V0, V...> v, F && f, Seq<S, W...> w)
+	-> decltype(remove_if(Seq<S, V...>{}, std::forward<F>(f),
+		std::conditional_t<decltype(std::declval<F>()(Seq<S, V0>{}))::value,
+		Seq<S, W...>, Seq<S, W..., V0>>{})) { return {}; }
+
+template<class S, S... V, S W>
+constexpr auto remove_all(Seq<S, V...> v, Seq<S, W> w)
+-> decltype(remove_all(v, w, Seq<S>{})) { return {}; }
+template<class S, S U0, S... U, S V, S... W>
+constexpr auto remove_all(Seq<S, U0, U...> u, Seq<S, V> v, Seq<S, W...> w)
+-> decltype(remove_all(Seq<S, U...>{}, v,
+	std::conditional_t<U0 == V, Seq<S, W...>, Seq<S, W..., U0>>{}))
+		{ return {}; }
+template<class S, S V, S... W>
+constexpr Seq<S, W...> remove_all(Seq<S>, Seq<S, V>, Seq<S, W...>)
+	{ return {}; }
+
+template<class S, S... V>
+auto nonzero(Seq<S, V...> v) /*{
+	return remove_if(v, [](auto && x) {
+		return std::integral_constant<bool, !x.value>{};
+			//!RemoveCVRef_t<decltype(x)>::value> {};
+	});
+}*/
+-> decltype(remove_all(v, Seq<S, 0>{})) { return {}; }
+
+/*template<class S, S... V, S W>
+auto remove_all(Seq<S, V...> v, Seq<S, W> w) {
+	return remove_if(v, [](auto && x) {
+		return SeqB<x.value != W>{};
+		//return BoolOrSeq<(V != x.value)...> {};
+}*/
+
+template<class S, S... W>
+constexpr Seq<S, W...> merge_sort(Seq<S>, Seq<S>, Seq<S, W...> = {}) { return {}; }
+template<class S, S U0, S... U, S... W>
+constexpr Seq<S, W..., U0, U...> merge_sort(Seq<S, U0, U...>,
+		Seq<S>, Seq<S, W...> = {}) { return {}; }
+template<class S, S V0, S... V, S... W>
+constexpr Seq<S, W..., V0, V...> merge_sort(Seq<S>,
+		Seq<S, V0, V...>, Seq<S, W...> = {}) { return {}; }
+template<class S, S U0, S... U, S V0, S... V, S... W>
+constexpr auto merge_sort(Seq<S, U0, U...> u,
+		Seq<S, V0, V...> v, Seq<S, W...> w) -> std::conditional_t<(U0 < V0),
+	decltype(merge_sort(Seq<S, U...>{}, v, Seq<S, W..., U0>{})),
+	decltype(merge_sort(u, Seq<S, V...>{}, Seq<S, W..., V0>{}))> { return {}; }
+
+template<class S, S... V, S... W>
+constexpr Seq<S, W..., V...> insert(Seq<S>, Seq<S, V...>, Seq<S, W...> = {}) { return {}; }
+template<class S, S U0, S... U, S V, S... W>
+constexpr auto insert(Seq<S, U0, U...> u, Seq<S, V> v, Seq<S, W...> w = {})
+-> std::conditional_t<(U0 < V),
+	decltype(insert(Seq<S, U...>{}, v, Seq<S, W..., U0>{})),
+	decltype(insert(Seq<S, U...>{}, Seq<S, U0>{}, Seq<S, W..., V>{}))> { return {}; }
+/*template<class S, S... U, S V>
+constexpr auto insert(Seq<S, U...> u, Seq<S, V> v)
+-> decltype(insert(u, v, Seq<S>{})) { return {}; }*/
+
+template<class S, S... U, S... V>
+constexpr Seq<S, V...> sort(Seq<S, U...> u, Seq<S, V...> = {}) { return {}; }
+template<class S, S U0, S... U, S... V>
+constexpr auto sort(Seq<S, U0, U...> u, Seq<S, V...> v = {})
+-> decltype(sort(Seq<S, U...>{}, insert(v, Seq<S, U0>{}))) { return {}; }
+
+template<class S, S... U, S V>
+constexpr auto insert_unique(Seq<S, U...> u, Seq<S, V> v)
+-> std::conditional_t<boolOrSeq((U == V)...), Seq<S, U...>,
+		decltype(insert(u, v))> { return {}; }
+
+template<class T, T... V, class S = unsigned>
+constexpr auto seq_cast(Seq<T, V...> = {}, Tag<S> = {})
+// V, S(V), or static_cast<S>(V)? TODO declare or parametrize
+-> Seq<S, static_cast<S>(V)...> { return {}; }
+
+template<class S = std::string, class T, T... U>
+S to_string(Seq<T, U...> const&) {
+	S cur = "{", pfx = "";
+	for(auto str : {std::to_string(U)...})
+		cur += pfx + str, pfx = ", ";
+	return cur + "}";
+}
 
 }
 
